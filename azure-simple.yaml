@@ -1,40 +1,92 @@
-# mywebapp services
-##################################################################################################
+---
+---
+# Source: azure-vote/templates/azure-vote-back-svc.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: mywebapp
-  labels:
-    app: mywebapp
+  name: azure-vote-back
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: azure-vote-back
+
+---
+
+# Source: azure-vote/templates/azure-vote-front-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: azure-vote-front
 spec:
   type: LoadBalancer
   ports:
-  - port: 8080
-    name: http
+    - port: 80
   selector:
-    app: mywebapp
+    app: azure-vote-front
 ---
-apiVersion: extensions/v1beta1  #TODO: Migrate to apps/v1
+
+# Source: azure-vote/templates/azure-vote-back-deployment.yaml
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mywebapp-v1
+  name: azure-vote-back
 spec:
-  replicas: 3
-  minReadySeconds: 10 # Wait 2 seconds after each new pod comes up before marked as "ready"
-  strategy:
-    type: RollingUpdate # describe how we do rolling updates
-    rollingUpdate:
-      maxUnavailable: 1 # When updating take one pod down at a time
-      maxSurge: 1 # When updating never have more than one extra pod. If replicas = 2 then never 3 pods when updating
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-vote-back
   template:
     metadata:
       labels:
-        app: mywebapp
-        version: v1
+        app: azure-vote-back
     spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
       containers:
-      - name: mywebapp
-        image: andrebriggs/goserver:v1.2
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 8080
+        - name: azure-vote-back
+          image: redis
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          ports:
+            - containerPort: 6379
+              name: redis
+---
+
+# Source: azure-vote/templates/azure-vote-front-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-vote-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-vote-front
+  template:
+    metadata:
+      labels:
+        app: azure-vote-front
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+        - name: azure-vote-front
+          image: jhansiacr2.azurecr.io/votingapp:7269
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          ports:
+            - containerPort: 80
+          env:
+            - name: REDIS
+              value: "azure-vote-back"
